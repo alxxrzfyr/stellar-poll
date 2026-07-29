@@ -6,7 +6,7 @@ Built for Level 2 of the Stellar/Soroban builder program.
 
 ## Live Demo
 
-> **URL:** https://level-2-iota.vercel.app
+> **URL:** https://stellar-polls.vercel.app
 
 ## Screenshot
 

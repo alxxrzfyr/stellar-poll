@@ -1,7 +1,15 @@
-export const CONTRACT_ID = import.meta.env.VITE_CONTRACT_ID;
-export const RPC_URL = import.meta.env.VITE_RPC_URL;
-export const NETWORK_PASSPHRASE = import.meta.env.VITE_NETWORK_PASSPHRASE;
-export const HORIZON_URL = import.meta.env.VITE_HORIZON_URL;
+export const CONTRACT_ID =
+  import.meta.env.VITE_CONTRACT_ID ||
+  "CDIH3FZMQSMD36LJO6KNYNWCXABE5LV7CC3DQC7C26VEYRBSRQPHK5WZ";
+export const RPC_URL =
+  import.meta.env.VITE_RPC_URL ||
+  "https://soroban-testnet.stellar.org";
+export const NETWORK_PASSPHRASE =
+  import.meta.env.VITE_NETWORK_PASSPHRASE ||
+  "Test SDF Network ; September 2015";
+export const HORIZON_URL =
+  import.meta.env.VITE_HORIZON_URL ||
+  "https://horizon-testnet.stellar.org";
 
 export const FRIENDBOT_URL = "https://friendbot.stellar.org";
 export const STELLAR_EXPERT_TX_URL =
