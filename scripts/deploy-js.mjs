@@ -1,20 +1,3 @@
-/**
- * Deploy the poll contract to Stellar testnet using only @stellar/stellar-sdk.
- * No Stellar CLI or Rust required, just a pre-compiled .wasm file.
- *
- * Usage:
- *   node scripts/deploy-js.mjs [path-to-wasm]
- *
- * If no wasm path is given, defaults to contracts/poll/target/wasm32-unknown-unknown/release/stellar_poll.wasm
- *
- * The script will:
- *   1. Generate a new keypair and fund it via Friendbot (or use DEPLOYER_SECRET env var)
- *   2. Upload the wasm bytecode
- *   3. Deploy a contract instance
- *   4. Invoke `init` on the contract with a sample poll
- *   5. Print the contract ID for your .env file
- */
-
 import * as StellarSDK from "@stellar/stellar-sdk";
 import fs from "fs";
 import path from "path";
@@ -28,41 +11,29 @@ const server = new StellarSDK.rpc.Server(RPC_URL);
 async function main() {
   const wasmPath =
     process.argv[2] ||
-    path.resolve(
-      "contracts/poll/wasm/stellar_poll.wasm",
-    );
+    path.resolve("contracts/poll/wasm/stellar_poll.wasm");
 
   if (!fs.existsSync(wasmPath)) {
     console.error(`Wasm file not found: ${wasmPath}`);
-    console.error(
-      "Build the contract first with `stellar contract build` in contracts/poll/,",
-    );
-    console.error(
-      "or provide the path to a pre-compiled .wasm as the first argument.",
-    );
     process.exit(1);
   }
 
-  // Get or create deployer keypair.
   let keypair;
   if (process.env.DEPLOYER_SECRET) {
     keypair = StellarSDK.Keypair.fromSecret(process.env.DEPLOYER_SECRET);
     console.log(`Using existing deployer: ${keypair.publicKey()}`);
   } else {
     keypair = StellarSDK.Keypair.random();
-    console.log(`Generated new keypair: ${keypair.publicKey()}`);
-    console.log(`Secret (save this): ${keypair.secret()}`);
+    console.log(`Generated keypair: ${keypair.publicKey()}`);
+    console.log(`Secret: ${keypair.secret()}`);
     console.log("Funding via Friendbot...");
-    const res = await fetch(
-      `${FRIENDBOT_URL}?addr=${keypair.publicKey()}`,
-    );
+    const res = await fetch(`${FRIENDBOT_URL}?addr=${keypair.publicKey()}`);
     if (!res.ok) {
-      throw new Error(`Friendbot funding failed: ${res.status} ${await res.text()}`);
+      throw new Error(`Friendbot funding failed: ${res.status}`);
     }
     console.log("Funded.");
   }
 
-  // Step 1: Upload wasm.
   console.log("\n--- Uploading contract wasm ---");
   const bytecode = fs.readFileSync(wasmPath);
   console.log(`Wasm size: ${bytecode.length} bytes`);
@@ -70,22 +41,16 @@ async function main() {
   const wasmHash = uploadResponse.returnValue.bytes();
   console.log(`Wasm hash: ${Buffer.from(wasmHash).toString("hex")}`);
 
-  // Step 2: Deploy contract instance.
   console.log("\n--- Deploying contract instance ---");
   const contractAddress = await deployContract(keypair, wasmHash, uploadResponse.hash);
   console.log(`Contract ID: ${contractAddress}`);
 
-  // Step 3: Initialize the poll.
   console.log("\n--- Initializing poll ---");
   await initPoll(keypair, contractAddress);
 
   console.log("\n=== DEPLOYMENT COMPLETE ===");
   console.log(`Contract ID: ${contractAddress}`);
-  console.log(`\nAdd to your .env file:`);
-  console.log(`VITE_CONTRACT_ID=${contractAddress}`);
-  console.log(
-    `\nView on Stellar Expert: https://stellar.expert/explorer/testnet/contract/${contractAddress}`,
-  );
+  console.log(`Add to your .env file: VITE_CONTRACT_ID=${contractAddress}`);
 }
 
 async function uploadWasm(keypair, bytecode) {
@@ -102,12 +67,9 @@ async function deployContract(keypair, wasmHash, salt) {
     salt: salt,
   });
   const response = await buildAndSendTransaction(keypair, account, operation);
-  const contractAddress = StellarSDK.StrKey.encodeContract(
-    StellarSDK.Address.fromScAddress(
-      response.returnValue.address(),
-    ).toBuffer(),
+  return StellarSDK.StrKey.encodeContract(
+    StellarSDK.Address.fromScAddress(response.returnValue.address()).toBuffer(),
   );
-  return contractAddress;
 }
 
 async function initPoll(keypair, contractId) {
@@ -128,7 +90,6 @@ async function initPoll(keypair, contractId) {
     optionStrings.map((s) => StellarSDK.nativeToScVal(s, { type: "string" })),
   );
   const admin = new StellarSDK.Address(keypair.publicKey()).toScVal();
-
   const operation = contract.call("init", admin, question, options);
 
   const transaction = new StellarSDK.TransactionBuilder(account, {
@@ -155,9 +116,6 @@ async function initPoll(keypair, contractId) {
 
   if (response.status === "SUCCESS") {
     console.log("Poll initialized successfully.");
-    console.log(
-      `Init tx: https://stellar.expert/explorer/testnet/tx/${hash}`,
-    );
   } else {
     console.error("Init transaction failed:", response);
     throw new Error("Init failed");
@@ -180,7 +138,6 @@ async function buildAndSendTransaction(keypair, account, operation) {
   let response = await server.sendTransaction(tx);
   const hash = response.hash;
   console.log(`Transaction hash: ${hash}`);
-  console.log("Awaiting confirmation...");
 
   while (true) {
     response = await server.getTransaction(hash);

@@ -34,8 +34,6 @@ pub struct PollContract;
 
 #[contractimpl]
 impl PollContract {
-    /// Initialize the poll with a question and list of options.
-    /// Can only be called once.
     pub fn init(env: Env, admin: Address, question: String, options: Vec<String>) {
         if env.storage().instance().has(&POLL_KEY) {
             panic!("AlreadyInitialized");
@@ -61,8 +59,6 @@ impl PollContract {
             .publish((symbol_short!("poll"), symbol_short!("init")), (question, options));
     }
 
-    /// Cast a vote for the given option index.
-    /// Each address can only vote once.
     pub fn vote(env: Env, voter: Address, option: u32) {
         voter.require_auth();
 
@@ -82,7 +78,6 @@ impl PollContract {
             panic!("AlreadyVoted");
         }
 
-        // Record vote.
         let mut tallies: Vec<u32> = env.storage().instance().get(&TALLIES_KEY).unwrap();
         let current = tallies.get(option_index).unwrap_or(0);
         tallies.set(option_index, current + 1);
@@ -90,18 +85,15 @@ impl PollContract {
         env.storage().instance().set(&TALLIES_KEY, &tallies);
         env.storage().persistent().set(&voter_key, &true);
 
-        // Extend TTL so vote records survive.
         env.storage()
             .persistent()
             .extend_ttl(&voter_key, 100_000, 100_000);
         env.storage().instance().extend_ttl(100_000, 100_000);
 
-        // Emit voted event with voter in topics for filtering.
         env.events()
             .publish((symbol_short!("vote"), voter.clone()), option);
     }
 
-    /// Get the full poll state for rendering.
     pub fn get_poll(env: Env) -> PollView {
         if !env.storage().instance().has(&POLL_KEY) {
             panic!("NotInitialized");
@@ -117,13 +109,11 @@ impl PollContract {
         }
     }
 
-    /// Check whether an address has already voted.
     pub fn has_voted(env: Env, voter: Address) -> bool {
         let voter_key = DataKey::Voted(voter);
         env.storage().persistent().has(&voter_key)
     }
 
-    /// Get just the current tallies.
     pub fn get_tally(env: Env) -> Vec<u32> {
         if !env.storage().instance().has(&TALLIES_KEY) {
             panic!("NotInitialized");
@@ -191,7 +181,7 @@ mod test {
 
         let voter = Address::generate(&env);
         client.vote(&voter, &0);
-        client.vote(&voter, &1); // should panic
+        client.vote(&voter, &1);
     }
 
     #[test]
@@ -214,7 +204,7 @@ mod test {
         client.init(&admin, &question, &options);
 
         let voter = Address::generate(&env);
-        client.vote(&voter, &5); // out of range
+        client.vote(&voter, &5);
     }
 
     #[test]
@@ -235,6 +225,6 @@ mod test {
         ];
 
         client.init(&admin, &question, &options);
-        client.init(&admin, &question, &options); // should panic
+        client.init(&admin, &question, &options);
     }
 }

@@ -4,10 +4,6 @@ import type { PollData } from "../types";
 
 const server = new StellarSdk.rpc.Server(RPC_URL);
 
-/**
- * Read the full poll state (question, options, tallies) from the contract.
- * This does not require a connected wallet because it's a pure simulation.
- */
 export async function getPoll(): Promise<PollData> {
   const contract = new StellarSdk.Contract(CONTRACT_ID);
   const tx = new StellarSdk.TransactionBuilder(
@@ -23,9 +19,7 @@ export async function getPoll(): Promise<PollData> {
 
   const sim = await server.simulateTransaction(tx);
 
-  if (
-    StellarSdk.rpc.Api.isSimulationError(sim)
-  ) {
+  if (StellarSdk.rpc.Api.isSimulationError(sim)) {
     throw new Error(`Simulation failed: ${sim.error}`);
   }
 
@@ -34,13 +28,9 @@ export async function getPoll(): Promise<PollData> {
     throw new Error("No result from simulation");
   }
 
-  const scVal = result.retval;
-  return parsePollData(scVal);
+  return parsePollData(result.retval);
 }
 
-/**
- * Check if a given address has already voted.
- */
 export async function hasVoted(address: string): Promise<boolean> {
   const contract = new StellarSdk.Contract(CONTRACT_ID);
   const tx = new StellarSdk.TransactionBuilder(
@@ -57,10 +47,7 @@ export async function hasVoted(address: string): Promise<boolean> {
     .build();
 
   const sim = await server.simulateTransaction(tx);
-
-  if (StellarSdk.rpc.Api.isSimulationError(sim)) {
-    return false;
-  }
+  if (StellarSdk.rpc.Api.isSimulationError(sim)) return false;
 
   const result = (sim as StellarSdk.rpc.Api.SimulateTransactionSuccessResponse).result;
   if (!result) return false;
@@ -68,9 +55,6 @@ export async function hasVoted(address: string): Promise<boolean> {
   return StellarSdk.scValToNative(result.retval) as boolean;
 }
 
-/**
- * Build, simulate, and return a prepared vote transaction for signing.
- */
 export async function buildVoteTx(
   voterAddress: string,
   optionIndex: number,
@@ -102,25 +86,14 @@ export async function buildVoteTx(
     throw new Error(errorMsg);
   }
 
-  const prepared = StellarSdk.rpc.assembleTransaction(
+  return StellarSdk.rpc.assembleTransaction(
     tx,
     sim as StellarSdk.rpc.Api.SimulateTransactionSuccessResponse,
   ).build();
-
-  return prepared;
 }
 
-/**
- * Submit a signed transaction and return the hash.
- */
-export async function submitTx(
-  signedXdr: string,
-): Promise<{ hash: string }> {
-  const tx = StellarSdk.TransactionBuilder.fromXDR(
-    signedXdr,
-    NETWORK_PASSPHRASE,
-  );
-
+export async function submitTx(signedXdr: string): Promise<{ hash: string }> {
+  const tx = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
   const response = await server.sendTransaction(tx);
 
   if (response.status === "ERROR") {
@@ -130,9 +103,6 @@ export async function submitTx(
   return { hash: response.hash };
 }
 
-/**
- * Poll for a transaction result until it succeeds, fails, or times out.
- */
 export async function pollTxStatus(
   hash: string,
   timeoutMs: number,
@@ -149,7 +119,7 @@ export async function pollTxStatus(
     if (result.status === "FAILED") {
       return {
         status: "failed",
-        error: "Transaction failed on-chain. Check Stellar Expert for details.",
+        error: "Transaction failed on-chain.",
       };
     }
 
@@ -158,13 +128,10 @@ export async function pollTxStatus(
 
   return {
     status: "failed",
-    error: "Transaction timed out. Check Stellar Expert for its current status.",
+    error: "Transaction timed out.",
   };
 }
 
-/**
- * Fetch recent contract events starting from a given ledger.
- */
 export async function getVoteEvents(
   startLedger: number,
 ): Promise<{ voter: string; option: number; ledger: number; txHash: string }[]> {
@@ -197,17 +164,11 @@ export async function getVoteEvents(
   });
 }
 
-/**
- * Get the latest ledger number from the network.
- */
 export async function getLatestLedger(): Promise<number> {
   const result = await server.getLatestLedger();
   return result.sequence;
 }
 
-/**
- * Check if an account is funded on testnet.
- */
 export async function checkBalance(address: string): Promise<{
   funded: boolean;
   balance: string;
@@ -231,7 +192,7 @@ function parsePollData(scVal: StellarSdk.xdr.ScVal): PollData {
     };
   }
 
-  throw new Error("Unexpected poll data format from contract");
+  throw new Error("Unexpected poll data format");
 }
 
 function sleep(ms: number): Promise<void> {
